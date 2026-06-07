@@ -13,20 +13,67 @@ CREATE TABLE IF NOT EXISTS officers (
 );
 
 CREATE TABLE IF NOT EXISTS evidence (
-    id            BIGINT        NOT NULL AUTO_INCREMENT,
-    evidence_no   VARCHAR(48)   NOT NULL,
-    case_no       VARCHAR(48)   NOT NULL,
-    name          VARCHAR(128)  NOT NULL,
-    category      VARCHAR(32)   NOT NULL DEFAULT 'OTHER',
-    description   VARCHAR(1000) NOT NULL DEFAULT '',
-    status        VARCHAR(16)   NOT NULL DEFAULT 'REGISTERED',
-    location      VARCHAR(128)  NOT NULL DEFAULT '',
-    registered_by BIGINT        NULL,
-    created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                BIGINT        NOT NULL AUTO_INCREMENT,
+    evidence_no       VARCHAR(48)   NOT NULL,
+    case_no           VARCHAR(48)   NOT NULL,
+    name              VARCHAR(128)  NOT NULL,
+    category          VARCHAR(32)   NOT NULL DEFAULT 'OTHER',
+    description       VARCHAR(1000) NOT NULL DEFAULT '',
+    status            VARCHAR(24)   NOT NULL DEFAULT 'REGISTERED',
+    location          VARCHAR(128)  NOT NULL DEFAULT '',
+    registered_by     BIGINT        NULL,
+    case_status       VARCHAR(16)   NOT NULL DEFAULT 'OPEN',
+    retention_due_date DATE         NULL,
+    created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     CONSTRAINT uk_evidence_no UNIQUE (evidence_no),
     CONSTRAINT fk_evidence_officer FOREIGN KEY (registered_by) REFERENCES officers (id)
+);
+
+CREATE TABLE IF NOT EXISTS destruction_batches (
+    id              BIGINT       NOT NULL AUTO_INCREMENT,
+    batch_no        VARCHAR(48)  NOT NULL,
+    applicant_id    BIGINT       NOT NULL,
+    apply_reason    VARCHAR(500) NOT NULL DEFAULT '',
+    status          VARCHAR(24)  NOT NULL DEFAULT 'DRAFT',
+    approver_id     BIGINT       NULL,
+    approval_remark VARCHAR(500) NOT NULL DEFAULT '',
+    approved_at     TIMESTAMP    NULL,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_destruction_batch_no UNIQUE (batch_no),
+    CONSTRAINT fk_destruction_applicant FOREIGN KEY (applicant_id) REFERENCES officers (id),
+    CONSTRAINT fk_destruction_approver FOREIGN KEY (approver_id) REFERENCES officers (id)
+);
+
+CREATE TABLE IF NOT EXISTS destruction_batch_evidence (
+    id           BIGINT       NOT NULL AUTO_INCREMENT,
+    batch_id     BIGINT       NOT NULL,
+    evidence_id  BIGINT       NOT NULL,
+    created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_destruction_evidence UNIQUE (evidence_id),
+    CONSTRAINT fk_dbe_batch FOREIGN KEY (batch_id) REFERENCES destruction_batches (id),
+    CONSTRAINT fk_dbe_evidence FOREIGN KEY (evidence_id) REFERENCES evidence (id)
+);
+
+CREATE TABLE IF NOT EXISTS destruction_supervisions (
+    id               BIGINT       NOT NULL AUTO_INCREMENT,
+    batch_id         BIGINT       NOT NULL,
+    supervision_time TIMESTAMP    NOT NULL,
+    location         VARCHAR(255) NOT NULL,
+    method           VARCHAR(64)  NOT NULL,
+    supervisor1_id   BIGINT       NOT NULL,
+    supervisor2_id   BIGINT       NOT NULL,
+    result_remark    VARCHAR(1000) NOT NULL DEFAULT '',
+    executed_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_supervision_batch UNIQUE (batch_id),
+    CONSTRAINT fk_supervision_batch FOREIGN KEY (batch_id) REFERENCES destruction_batches (id),
+    CONSTRAINT fk_supervisor1 FOREIGN KEY (supervisor1_id) REFERENCES officers (id),
+    CONSTRAINT fk_supervisor2 FOREIGN KEY (supervisor2_id) REFERENCES officers (id)
 );
 
 CREATE TABLE IF NOT EXISTS custody_records (

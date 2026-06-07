@@ -72,6 +72,12 @@ public class EvidenceService {
     @Transactional
     public Evidence checkOut(Long evidenceId, Long toOfficer, String remark) {
         Evidence ev = get(evidenceId);
+        if ("DESTROYED".equals(ev.getStatus())) {
+            throw ApiException.conflict("物证已销毁，不可借出");
+        }
+        if ("IN_DESTRUCTION".equals(ev.getStatus()) || "PENDING_DESTRUCTION".equals(ev.getStatus())) {
+            throw ApiException.conflict("物证正在销毁流程中，不可借出");
+        }
         if (!"IN_STORAGE".equals(ev.getStatus())) {
             throw ApiException.conflict("物证当前状态不可借出：" + ev.getStatus());
         }

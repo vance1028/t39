@@ -1,11 +1,15 @@
 package com.police.eom.domain;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
  * 物证。
- * status 流转：REGISTERED(已登记) → IN_STORAGE(在库) → CHECKED_OUT(借出) → IN_STORAGE → DESTROYED/RELEASED(销毁/发还)
+ * status 流转：REGISTERED(已登记) → IN_STORAGE(在库) → CHECKED_OUT(借出) → IN_STORAGE
+ *           → IN_DESTRUCTION(销毁流程中) → PENDING_DESTRUCTION(待销毁/审批通过)
+ *           → DESTROYED(已销毁，不可逆)
+ * case_status: OPEN(案件办理中), CLOSED(案件已办结)
  */
 @Entity
 @Table(name = "evidence")
@@ -30,7 +34,7 @@ public class Evidence {
     @Column(nullable = false, length = 1000)
     private String description = "";
 
-    @Column(nullable = false, length = 16)
+    @Column(nullable = false, length = 24)
     private String status = "REGISTERED";
 
     @Column(nullable = false, length = 128)
@@ -38,6 +42,12 @@ public class Evidence {
 
     @Column(name = "registered_by")
     private Long registeredBy;
+
+    @Column(name = "case_status", nullable = false, length = 16)
+    private String caseStatus = "OPEN";
+
+    @Column(name = "retention_due_date")
+    private LocalDate retentionDueDate;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -75,6 +85,10 @@ public class Evidence {
     public void setLocation(String location) { this.location = location; }
     public Long getRegisteredBy() { return registeredBy; }
     public void setRegisteredBy(Long registeredBy) { this.registeredBy = registeredBy; }
+    public String getCaseStatus() { return caseStatus; }
+    public void setCaseStatus(String caseStatus) { this.caseStatus = caseStatus; }
+    public LocalDate getRetentionDueDate() { return retentionDueDate; }
+    public void setRetentionDueDate(LocalDate retentionDueDate) { this.retentionDueDate = retentionDueDate; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

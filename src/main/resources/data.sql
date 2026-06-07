@@ -7,10 +7,13 @@ INSERT IGNORE INTO officers (id, police_no, name, department, rank_title, status
   (3, '030003', '赵晓敏', '物证管理科', '三级警长', 'ACTIVE'),
   (4, '030004', '陈海涛', '特巡警支队', '一级警司', 'ACTIVE');
 
-INSERT IGNORE INTO evidence (id, evidence_no, case_no, name, category, description, status, location, registered_by) VALUES
-  (1, 'WZ-2026-0001', 'AJ-2026-0101', '作案匕首一把', 'WEAPON', '案发现场提取的折叠匕首', 'IN_STORAGE', '物证仓A-03', 3),
-  (2, 'WZ-2026-0002', 'AJ-2026-0101', '血迹样本', 'BIOLOGICAL', '现场地面血迹棉签提取', 'IN_STORAGE', '物证仓A-04', 3),
-  (3, 'WZ-2026-0003', 'AJ-2026-0205', '涉案手机一部', 'ELECTRONIC', '黑色智能手机，待数据勘验', 'REGISTERED', '暂存柜B-11', 2);
+INSERT IGNORE INTO evidence (id, evidence_no, case_no, name, category, description, status, location, registered_by, case_status, retention_due_date) VALUES
+  (1, 'WZ-2026-0001', 'AJ-2026-0101', '作案匕首一把', 'WEAPON', '案发现场提取的折叠匕首', 'IN_STORAGE', '物证仓A-03', 3, 'OPEN', '2027-06-01'),
+  (2, 'WZ-2026-0002', 'AJ-2026-0101', '血迹样本', 'BIOLOGICAL', '现场地面血迹棉签提取', 'IN_STORAGE', '物证仓A-04', 3, 'OPEN', '2027-06-01'),
+  (3, 'WZ-2026-0003', 'AJ-2026-0205', '涉案手机一部', 'ELECTRONIC', '黑色智能手机，待数据勘验', 'REGISTERED', '暂存柜B-11', 2, 'OPEN', '2028-01-01'),
+  (4, 'WZ-2025-0100', 'AJ-2025-1001', '盗窃案赃款现金', 'PROPERTY', '已审结盗窃案收缴现金5000元', 'IN_STORAGE', '物证仓C-01', 3, 'CLOSED', '2026-01-01'),
+  (5, 'WZ-2025-0101', 'AJ-2025-1001', '作案工具螺丝刀', 'WEAPON', '已审结盗窃案作案工具', 'IN_STORAGE', '物证仓C-02', 3, 'CLOSED', '2026-01-01'),
+  (6, 'WZ-2025-0200', 'AJ-2025-1105', '诈骗案涉案U盘', 'ELECTRONIC', '已审结诈骗案存储介质', 'IN_STORAGE', '物证仓C-03', 3, 'CLOSED', '2026-03-01');
 
 INSERT IGNORE INTO custody_records (id, evidence_id, action, from_officer, to_officer, remark, occurred_at) VALUES
   (1, 1, 'REGISTER', NULL, 3, '入库登记', '2026-05-20 09:00:00.000'),

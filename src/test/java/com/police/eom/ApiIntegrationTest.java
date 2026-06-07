@@ -172,4 +172,191 @@ class ApiIntegrationTest {
         mvc.perform(get("/api/evidence/99999"))
                 .andExpect(status().isNotFound());
     }
+
+    // ========== 销毁流程测试 ==========
+
+    @Test
+    void destruction_full_flow_happy_path() throws Exception {
+        // 1. 提请销毁：物证 4、5、6 都是已结案、过留存期的
+        String applyBody = "{\"applicantId\":3,\"applyReason\":\"案件已办结且过留存期，统一销毁\",\"evidenceIds\":[4,5,6]}";
+        String resp = mvc.perform(post("/api/destruction/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"))
+                .andReturn().getResponse().getContentAsString();
+        long batchId = om.readTree(resp).get("id").asLong();
+        String batchNo = om.readTree(resp).get("batchNo").asText();
+
+        // 物证状态应变为 IN_DESTRUCTION
+        mvc.perform(get("/api/evidence/4"))
+                .andExpect(jsonPath("$.status").value("IN_DESTRUCTION"));
+
+        // 批次物证应能查到
+        mvc.perform(get("/api/destruction/batches/" + batchId + "/evidence"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3));
+
+        // 保管链应写入 DEST_APPLY 记录
+        mvc.perform(get("/api/evidence/4/custody"))
+                .andExpect(jsonPath("$[-1].action").value("DEST_APPLY"));
+
+        // 2. 审批通过（审批人不能是申请人 3，用 1）
+        String approveBody = "{\"approverId\":1,\"approved\":true,\"approvalRemark\":\"同意销毁\"}";
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(approveBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"));
+
+        // 物证状态应变为 PENDING_DESTRUCTION
+        mvc.perform(get("/api/evidence/4"))
+                .andExpect(jsonPath("$.status").value("PENDING_DESTRUCTION"));
+
+        // 保管链应写入 DEST_APPROVE 记录
+        mvc.perform(get("/api/evidence/4/custody"))
+                .andExpect(jsonPath("$[-1].action").value("DEST_APPROVE"));
+
+        // 3. 执行监销（双人监销，都不能是申请人 3）
+        String superviseBody = "{\"supervisionTime\":\"2026-06-07T10:00:00\",\"location\":\"物证销毁室\",\"method\":\"高温焚烧\",\"supervisor1Id\":1,\"supervisor2Id\":2,\"resultRemark\":\"全部物证已彻底销毁，无残留\"}";
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(superviseBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.method").value("高温焚烧"));
+
+        // 批次状态应变为 COMPLETED
+        mvc.perform(get("/api/destruction/batches/" + batchId))
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+
+        // 物证状态应变为 DESTROYED
+        mvc.perform(get("/api/evidence/4"))
+                .andExpect(jsonPath("$.status").value("DESTROYED"));
+        mvc.perform(get("/api/evidence/5"))
+                .andExpect(jsonPath("$.status").value("DESTROYED"));
+        mvc.perform(get("/api/evidence/6"))
+                .andExpect(jsonPath("$.status").value("DESTROYED"));
+
+        // 保管链应写入 DESTROYED 记录
+        mvc.perform(get("/api/evidence/4/custody"))
+                .andExpect(jsonPath("$[-1].action").value("DESTROYED"));
+
+        // 销毁清单应能查到
+        mvc.perform(get("/api/destruction/batches/" + batchId + "/manifest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.batch.batchNo").value(batchNo))
+                .andExpect(jsonPath("$.evidenceList.length()").value(3))
+                .andExpect(jsonPath("$.supervision.method").value("高温焚烧"));
+
+        // 监销记录应能查到
+        mvc.perform(get("/api/destruction/batches/" + batchId + "/supervision"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.supervisor1Id").value(1))
+                .andExpect(jsonPath("$.supervisor2Id").value(2));
+    }
+
+    @Test
+    void destruction_apply_invalid_evidence_rejected() throws Exception {
+        // 物证 1 是 OPEN 案件，应被拦截
+        String applyBody = "{\"applicantId\":3,\"applyReason\":\"测试\",\"evidenceIds\":[1]}";
+        mvc.perform(post("/api/destruction/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyBody))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void destruction_approve_same_as_applicant_rejected() throws Exception {
+        // 先建一个批次
+        String applyBody = "{\"applicantId\":3,\"applyReason\":\"测试\",\"evidenceIds\":[4]}";
+        String resp = mvc.perform(post("/api/destruction/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyBody))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long batchId = om.readTree(resp).get("id").asLong();
+
+        // 审批人 = 申请人，应拦截
+        String approveBody = "{\"approverId\":3,\"approved\":true}";
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(approveBody))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void destruction_supervision_same_supervisor_rejected() throws Exception {
+        // 先建批次并审批通过
+        String applyBody = "{\"applicantId\":3,\"applyReason\":\"测试\",\"evidenceIds\":[5]}";
+        String resp = mvc.perform(post("/api/destruction/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyBody))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long batchId = om.readTree(resp).get("id").asLong();
+
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"approverId\":1,\"approved\":true}"))
+                .andExpect(status().isOk());
+
+        // 两名监销人相同，应拦截
+        String badBody = "{\"location\":\"销毁室\",\"method\":\"焚烧\",\"supervisor1Id\":1,\"supervisor2Id\":1}";
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(badBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void destruction_supervision_same_as_applicant_rejected() throws Exception {
+        // 先建批次（申请人 3）并审批通过
+        String applyBody = "{\"applicantId\":3,\"applyReason\":\"测试\",\"evidenceIds\":[6]}";
+        String resp = mvc.perform(post("/api/destruction/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyBody))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long batchId = om.readTree(resp).get("id").asLong();
+
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"approverId\":1,\"approved\":true}"))
+                .andExpect(status().isOk());
+
+        // 监销人包含申请人 3，应拦截
+        String badBody = "{\"location\":\"销毁室\",\"method\":\"焚烧\",\"supervisor1Id\":3,\"supervisor2Id\":2}";
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(badBody))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void destroyed_evidence_cannot_checkout() throws Exception {
+        // 先走完销毁流程
+        String applyBody = "{\"applicantId\":3,\"applyReason\":\"测试\",\"evidenceIds\":[4]}";
+        String resp = mvc.perform(post("/api/destruction/apply")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyBody))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long batchId = om.readTree(resp).get("id").asLong();
+
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"approverId\":1,\"approved\":true}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/destruction/batches/" + batchId + "/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"location\":\"销毁室\",\"method\":\"焚烧\",\"supervisor1Id\":1,\"supervisor2Id\":2}"))
+                .andExpect(status().isOk());
+
+        // 已销毁物证借出应被拦截
+        mvc.perform(post("/api/evidence/4/checkout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"officerId\":1}"))
+                .andExpect(status().isConflict());
+    }
 }

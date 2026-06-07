@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 /**
  * 物证保管链记录（chain of custody）。
  * action: REGISTER(登记) / CHECK_OUT(借出) / CHECK_IN(归还) / TRANSFER(移交) / DISPOSE(处置)
+ *         DEST_APPLY(销毁申请) / DEST_APPROVE(销毁审批通过) / DEST_REJECT(销毁驳回) / DESTROYED(已销毁)
  */
 @Entity
 @Table(name = "custody_records")
@@ -18,7 +19,7 @@ public class CustodyRecord {
     @Column(name = "evidence_id", nullable = false)
     private Long evidenceId;
 
-    @Column(nullable = false, length = 16)
+    @Column(nullable = false, length = 32)
     private String action;
 
     @Column(name = "from_officer")

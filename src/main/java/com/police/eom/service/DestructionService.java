@@ -106,7 +106,7 @@ public class DestructionService {
 
             CustodyRecord rec = new CustodyRecord();
             rec.setEvidenceId(evidenceId);
-            rec.setAction("DESTRUCTION_APPLY");
+            rec.setAction("DEST_APPLY");
             rec.setFromOfficer(req.getApplicantId());
             rec.setRemark("加入销毁批次: " + batchNo);
             custodyRepo.save(rec);
@@ -142,7 +142,7 @@ public class DestructionService {
 
                 CustodyRecord rec = new CustodyRecord();
                 rec.setEvidenceId(link.getEvidenceId());
-                rec.setAction("DESTRUCTION_APPROVE");
+                rec.setAction("DEST_APPROVE");
                 rec.setFromOfficer(req.getApproverId());
                 rec.setRemark("销毁审批通过，批次: " + batch.getBatchNo());
                 custodyRepo.save(rec);
@@ -157,7 +157,7 @@ public class DestructionService {
 
                 CustodyRecord rec = new CustodyRecord();
                 rec.setEvidenceId(link.getEvidenceId());
-                rec.setAction("DESTRUCTION_REJECT");
+                rec.setAction("DEST_REJECT");
                 rec.setFromOfficer(req.getApproverId());
                 rec.setRemark("销毁申请被驳回，批次: " + batch.getBatchNo());
                 custodyRepo.save(rec);

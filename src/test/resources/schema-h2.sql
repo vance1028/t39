@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS destruction_supervisions (
 CREATE TABLE IF NOT EXISTS custody_records (
     id           BIGINT       NOT NULL AUTO_INCREMENT,
     evidence_id  BIGINT       NOT NULL,
-    action       VARCHAR(16)  NOT NULL,
+    action       VARCHAR(32)  NOT NULL,
     from_officer BIGINT       NULL,
     to_officer   BIGINT       NULL,
     remark       VARCHAR(500) NOT NULL DEFAULT '',
